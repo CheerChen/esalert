@@ -1,0 +1,41 @@
+name: 1
+interval: "0 */5 * * * *"
+search_url: "http://127.0.0.1:9200/logstash-*/_search"
+search: {
+  "size": 0,
+  "query": {
+  "bool": {
+    "must": [
+      {
+        "match": {
+          "BackendName": "whatever.com/"
+        }
+      },
+      {
+        "match": {
+          "DownstreamStatus": 500
+        }
+      },
+      {
+        "range": {
+          "@timestamp": {
+            "gte": "now-5m",
+            "lte": "now",
+          }
+        }
+      }
+      ]
+    }
+  }
+}
+process:
+  lua_inline: |
+    if ctx.HitCount > 5 then
+      return {
+        {
+          type = "wechat",
+          users = {"clm", "chy2"},
+          content = "[esalert] WARNING! last 5 minutes ".. ctx.HitCount .." hits Request processing failed (500)" ,
+        }
+      }
+    end

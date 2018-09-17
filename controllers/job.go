@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
-	"../alert"
-	"../models"
+	"github.com/CheerChen/esalert/alert"
+	"github.com/CheerChen/esalert/models"
 )
 
 type JobController struct {
@@ -180,7 +180,7 @@ func (ctrl JobController) jobSpin(a alert.Alert) {
 			}
 		default:
 			now := time.Now()
-			next := a.Jobber.Next(now)
+			next := a.Timer.Next(now)
 			if now == next {
 				ctrl.logger.Info("start alert spin", zap.String("id", a.Name))
 				go a.Run()

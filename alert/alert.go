@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 )
 
 type Alert struct {

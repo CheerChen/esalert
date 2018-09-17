@@ -8,9 +8,9 @@ import (
 	"github.com/koding/multiconfig"
 	"go.uber.org/zap"
 
-	"./models"
-	"./alert"
-	"./controllers"
+	"github.com/CheerChen/esalert/models"
+	"github.com/CheerChen/esalert/alert"
+	"github.com/CheerChen/esalert/controllers"
 )
 
 var logger *zap.Logger

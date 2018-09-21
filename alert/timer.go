@@ -1,4 +1,3 @@
-// Package jobber time strings parser from jobber
 package alert
 
 import (

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"time"
 	"net/http"
 
@@ -8,36 +9,33 @@ import (
 	"github.com/koding/multiconfig"
 	"go.uber.org/zap"
 
-	"github.com/CheerChen/esalert/models"
-	"github.com/CheerChen/esalert/alert"
 	"github.com/CheerChen/esalert/controllers"
+	"github.com/CheerChen/esalert/models"
+	"github.com/CheerChen/esalert/logger"
+	"github.com/CheerChen/esalert/actions"
 )
-
-var logger *zap.Logger
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
-	logger, _ = zap.NewProduction()
-	r.Use(logHandler(logger))
+	r.Use(logHandler())
 
-	// load config
-	//path := os.Getenv("CONF_PATH")
-	conf := multiconfig.NewWithPath("config/dev.toml")
+	// 引入配置
+	path := os.Getenv("CONF_PATH")
+	conf := multiconfig.NewWithPath(path)
 
-	alert.InitLogger(logger)
-	jobCtrl := new(controllers.JobController)
-	jobCtrl.Init()
-
-	// recover alerts
 	err := models.InitDB(conf)
 	if err != nil {
 		logger.Fatal("initializing db failed", zap.String("err", err.Error()))
 	}
+	actions.Load(conf)
+
+	// 恢复现场：从 MYSQL 获取有效配置
+	jobCtrl := new(controllers.JobController)
 	jobCtrl.Recover()
 
-	// rest-api trigger
+	// 同步配置：通过 REST-API 启动停止
 	watcher := r.Group("/watcher")
 	{
 
@@ -63,7 +61,7 @@ func main() {
 
 }
 
-func logHandler(logger *zap.Logger) gin.HandlerFunc {
+func logHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path

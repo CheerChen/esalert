@@ -11,41 +11,37 @@ import (
 
 	"github.com/CheerChen/esalert/alert"
 	"github.com/CheerChen/esalert/models"
+	"github.com/CheerChen/esalert/logger"
 )
 
-type JobController struct {
-	runningJobs map[string]int
-	logger      *zap.Logger
-	signCh      chan string
-}
+type JobController struct{}
 
-func (ctrl *JobController) Init() {
-	ctrl.logger = alert.GetLogger()
-	ctrl.runningJobs = make(map[string]int)
-	ctrl.signCh = make(chan string, 10)
+var chMap map[string]chan int
+
+func init() {
+	chMap = make(map[string]chan int)
 }
 
 func (ctrl JobController) Recover() {
 	jobs, err := models.GetJobs()
 	if err != nil {
-		ctrl.logger.Fatal("failed to access db", zap.String("err", err.Error()))
+		logger.Fatal("failed to access db", zap.String("err", err.Error()))
 	}
 
-	ctrl.logger.Info("recovering alerts",
+	logger.Info("recovering alerts",
 		zap.Int("count", len(jobs)),
 	)
 
 	for _, job := range jobs {
 		var a alert.Alert
 		if err := yaml.Unmarshal([]byte(job.Value), &a); err != nil {
-			ctrl.logger.Error("failed to parse yaml",
+			logger.Error("failed to parse yaml",
 				zap.Int64("id", job.Id),
 				zap.String("err", err.Error()),
 				zap.String("value", job.Value),
 			)
 		} else {
 			ctrl.initJob(a)
-			ctrl.runningJobs[a.Name] = 1
 		}
 	}
 }
@@ -64,7 +60,7 @@ func (ctrl JobController) Reload(c *gin.Context) {
 	// reload/start job
 	var a alert.Alert
 	if err := yaml.Unmarshal([]byte(job.Value), &a); err != nil {
-		ctrl.logger.Error("failed to parse yaml",
+		logger.Error("failed to parse yaml",
 			zap.Int64("id", job.Id),
 			zap.String("err", err.Error()),
 			zap.String("value", job.Value),
@@ -75,10 +71,10 @@ func (ctrl JobController) Reload(c *gin.Context) {
 		})
 		return
 	} else {
-		if _, isRunning := ctrl.runningJobs[a.Name]; isRunning {
-			go ctrl.reloadJob(a)
-		} else {
+		if _, ok := chMap[a.Name]; !ok {
 			ctrl.initJob(a)
+		} else {
+			go ctrl.reloadJob(a)
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"msg": "reload ok",
@@ -106,14 +102,14 @@ func (ctrl JobController) Stop(c *gin.Context) {
 		return
 	}
 	jobName := strconv.FormatInt(job.Id, 10)
-	if _, isRunning := ctrl.runningJobs[jobName]; !isRunning {
+	if _, ok := chMap[jobName]; !ok {
 		c.JSON(http.StatusNotFound, gin.H{
-			"msg": "job not runningJobs",
+			"msg": "job no running",
 		})
 		return
 	}
 
-	ctrl.stopJob(strconv.FormatInt(job.Id, 10), false)
+	go ctrl.stopJob(strconv.FormatInt(job.Id, 10))
 	c.JSON(http.StatusOK, gin.H{
 		"msg": "stop ok",
 	})
@@ -121,68 +117,70 @@ func (ctrl JobController) Stop(c *gin.Context) {
 }
 
 func (ctrl JobController) List(c *gin.Context) {
+	keys := make([]string, 0, len(chMap))
+	for k := range chMap {
+		keys = append(keys, k)
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"list": ctrl.runningJobs,
+		"list": keys,
 	})
 	return
 }
 
 func (ctrl JobController) initJob(a alert.Alert) {
 	if err := a.Init(); err != nil {
-		ctrl.logger.Error("failed to initialize alert",
+		logger.Error("failed to initialize alert",
 			zap.String("id", a.Name),
 			zap.String("err", err.Error()),
 		)
 	} else {
+		chMap[a.Name] = make(chan int)
 		go ctrl.jobSpin(a)
-		ctrl.logger.Info("initialized alert",
+		logger.Info("initialized alert",
 			zap.String("id", a.Name),
 		)
 	}
 }
 
 func (ctrl JobController) reloadJob(a alert.Alert) {
-	ctrl.stopJob(a.Name, true)
+	ctrl.stopJob(a.Name)
 
 	if err := a.Init(); err != nil {
-		ctrl.logger.Error("failed to initialize alert",
+		logger.Error("failed to initialize alert",
 			zap.String("id", a.Name),
 			zap.String("err", err.Error()),
 		)
 	} else {
+		chMap[a.Name] = make(chan int)
 		go ctrl.jobSpin(a)
-		ctrl.logger.Info("reloaded alert",
+		logger.Info("reloaded alert",
 			zap.String("id", a.Name),
 		)
 	}
 }
 
-func (ctrl JobController) stopJob(name string, isReload bool) {
-	ctrl.logger.Info("stopping alert",
+func (ctrl JobController) stopJob(name string) {
+	logger.Info("stopping alert",
 		zap.String("id", name),
 	)
 
-	ctrl.signCh <- name
-
-	if isReload {
-		// 需要延迟启动，否则新的goroutine会抢先收到退出信号
-		time.Sleep(time.Second)
-	}
+	close(chMap[name])
+	time.Sleep(time.Second)
+	delete(chMap, name)
+	logger.Info("delete alert channel map", zap.String("id", name))
 }
 
 func (ctrl JobController) jobSpin(a alert.Alert) {
 	for {
 		select {
-		case sig := <-ctrl.signCh:
-			if sig == a.Name {
-				ctrl.logger.Info("stop alert spin", zap.String("id", a.Name))
-				return
-			}
+		case <-chMap[a.Name]:
+			logger.Info("stop alert spin", zap.String("id", a.Name))
+			return
 		default:
 			now := time.Now()
 			next := a.Timer.Next(now)
 			if now == next {
-				ctrl.logger.Info("start alert spin", zap.String("id", a.Name))
+				logger.Info("start alert spin", zap.String("id", a.Name))
 				go a.Run()
 			}
 			time.Sleep(time.Second)

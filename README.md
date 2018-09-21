@@ -9,6 +9,7 @@ Forget about x-pack!
 - github.com/jmoiron/sqlx
 - github.com/koding/multiconfig
 - go.uber.org/zap
+- github.com/domodwyer/mailyak
 
 ## Usage
 Firstly, create `alert_job` table in your db
@@ -31,10 +32,16 @@ Of course stopping the watcher if not more need
 curl -XDELETE http://localhost:9000/watcher/{id}
 ```
 
+Check running jobs
+```shell
+curl -XGET http://localhost:9000/watcher/
+```
+
 ## More Actioner
 Currently, the actions to carry out while condition in lua script meet including
 - log
 - http request
-- self-built broadcast service
+- wechat broadcast service
+- mail
 
 You can develop your own Actioner freely

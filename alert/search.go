@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"github.com/CheerChen/esalert/logger"
 )
 
 type Hit struct {
@@ -121,8 +122,10 @@ func Search(u string, query interface{}) (Result, error) {
 	req.Header.Set("Content-Type", "application/json")
 
 	//req.SetBasicAuth(config.Opts.ElasticSearchUser, config.Opts.ElasticSearchPass)
-
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout: time.Duration(5 * time.Second),
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return Result{}, err
 	}

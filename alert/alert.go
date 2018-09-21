@@ -6,8 +6,11 @@ import (
 	"html/template"
 	"time"
 
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"go.uber.org/zap"
+
+	"github.com/CheerChen/esalert/actions"
+	"github.com/CheerChen/esalert/logger"
 )
 
 type Alert struct {
@@ -100,26 +103,27 @@ func (a Alert) Run() {
 
 	actionsRaw, _ := processRes.([]interface{})
 	if len(actionsRaw) == 0 {
-		logger.Error("no actions returned",
+		logger.Info("no actions returned",
 			zap.String("id", a.Name),
 		)
+		return
 	}
 
-	actions := make([]Action, len(actionsRaw))
+	acts := make([]actions.Action, len(actionsRaw))
 	for i := range actionsRaw {
-		act, err := ToActioner(actionsRaw[i])
+		act, err := actions.ToActioner(actionsRaw[i])
 		if err != nil {
 			logger.Error("error unpacking action",
 				zap.String("id", a.Name),
 			)
 			return
 		}
-		actions[i] = act
+		acts[i] = act
 	}
 
-	for i := range actions {
+	for i := range acts {
 		logger.Info("running action step")
-		if err := actions[i].Do(c); err != nil {
+		if err := acts[i].Do(); err != nil {
 			logger.Error("failed to complete action",
 				zap.String("err", err.Error()),
 				zap.String("id", a.Name),

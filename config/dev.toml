@@ -8,3 +8,9 @@ Pwd = "123456"
 Host = "127.0.0.1"
 Port = "3306"
 Database = "whatever"
+
+[Action]
+MailHost = "smtp.qiye.163.com"
+MailUsername = "noreply@admin.com"
+MailPwd = ""
+WechatHost = "http://127.0.0.1:8082/broadcast"

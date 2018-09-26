@@ -26,3 +26,11 @@ func GetJobs() (jobs []Job, err error) {
 	}
 	return jobs, nil
 }
+
+func DelJobById(id string) (err error) {
+	_, err = db.Exec("UPDATE alert_job SET is_deleted = 1 WHERE id=? LIMIT 1", id)
+	if err != nil {
+		return err
+	}
+	return nil
+}

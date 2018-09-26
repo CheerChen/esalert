@@ -24,7 +24,7 @@ func (w *Mail) Do() error {
 		conf.Action.MailPwd,
 		conf.Action.MailHost,
 	)
-	mail := mailyak.New(conf.Action.MailHost, auth)
+	mail := mailyak.New(conf.Action.MailHost+":25", auth)
 	mail.To(w.To...)
 	mail.From(conf.Action.MailUsername)
 	mail.Subject(w.Subject)

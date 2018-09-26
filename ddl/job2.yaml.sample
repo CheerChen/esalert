@@ -1,0 +1,43 @@
+interval: "0 */5 * * * *"
+search_url: "http://127.0.0.1:9200/index-*/_search"
+search: {
+  "size": 0,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "range": {
+            "@timestamp": {
+              "gte": "now-5m",
+              "lte": "now"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "status": {
+      "percentile_ranks": {
+        "field": "app.log.status",
+        "values": [
+          400
+        ]
+      }
+    }
+  }
+}
+process:
+  lua_inline: |
+    v = ctx.Aggregations.status.values["400.0"]
+    s = string.format("%.4f", v)
+    if v < 99 then
+      return {
+        {
+          type = "wechat",
+          users = {"clm@meitu.com"},
+          subject = "平台_暗中观察者",
+          content = "注意! 前 5 分钟请求成功率 ".. s .."%, 全部请求数 " .. ctx.HitCount,
+        }
+      }
+    end

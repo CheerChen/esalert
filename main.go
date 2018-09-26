@@ -40,7 +40,7 @@ func main() {
 	{
 
 		// POST watcher/:id
-		watcher.POST("/:id", jobCtrl.Reload)
+		watcher.POST("/:id", jobCtrl.Trigger)
 
 		// DELETE watcher/:id
 		watcher.DELETE("/:id", jobCtrl.Stop)

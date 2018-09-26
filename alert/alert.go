@@ -14,7 +14,7 @@ import (
 )
 
 type Alert struct {
-	Name      string    `yaml:"name"`
+	Name      string
 	Interval  string    `yaml:"interval"`
 	Search    Dict      `yaml:"search"`
 	SearchUrl string    `yaml:"search_url"`

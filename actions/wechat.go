@@ -14,12 +14,13 @@ import (
 // 企业微信动作
 type Wechat struct {
 	Users   []string `mapstructure:"users" json:"users"`
+	Subject string   `mapstructure:"subject" json:"subject"`
 	Content string   `mapstructure:"content" json:"content"`
 }
 
 // 群发
 func (w *Wechat) Do() error {
-	body := "receiver=" + strings.Join(w.Users, ",") + "&subject=Warning&content=" + w.Content
+	body := "receiver=" + strings.Join(w.Users, ",") + "&subject=" + w.Subject + "&content=" + w.Content
 
 	logger.Info("wechat sending request", zap.String("body", body))
 
